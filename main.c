@@ -8,6 +8,12 @@
 #define SQUARE_CHAR_HEIGHT 3
 #define SQUARE_CHAR_WIDTH 6
 
+
+int gridsize = GRID;
+bool win = false;
+char* victoryMessage = "You won, press q to quit";
+char* defeatMessage = "You lost, press q to quit";
+
 enum Direction {
   UP, DOWN, LEFT, RIGHT
 };
@@ -18,9 +24,30 @@ typedef struct {
   int numberCharLen;
 } Cell;
 
+typedef struct {
+  int spots[GRID*GRID];
+  int count;
+} EmptySpots;
 
-int gridsize = GRID;
-bool win = false;
+EmptySpots* getNewEmptySpots() {
+  EmptySpots* emptySpots = calloc(1, sizeof(EmptySpots));
+  emptySpots->count = 0;
+  return emptySpots;
+}
+
+EmptySpots* countEmptySpots(Cell*** board) {
+  EmptySpots* emptySpots = getNewEmptySpots();
+  for (int y = 0; y < gridsize; y++) {
+    for (int x = 0; x < gridsize; x++) {
+      if (board[y][x] == NULL) {
+        emptySpots->spots[emptySpots->count] = y*gridsize + x;
+        emptySpots->count++;
+      }
+    }
+  }
+
+  return emptySpots;
+}
 
 Cell* getCellByIndex(int index) {
   if (index < 1 || index > 11) {
@@ -30,7 +57,7 @@ Cell* getCellByIndex(int index) {
   Cell* pcell = calloc(1, sizeof(Cell*));
   pcell->index = index;
   switch (index) {
-    case 1: 
+    case 1:
       pcell->number = "2 ";
       pcell->numberCharLen = 2;
       break;
@@ -79,6 +106,27 @@ Cell* getCellByIndex(int index) {
   return pcell;
 }
 
+void displayMessageAndQuit(Cell*** board, char* message);
+
+void spawnCellInEmptySpot(Cell*** board) {
+  EmptySpots* emptySpots = countEmptySpots(board);
+  if (emptySpots->count == 0) {
+    displayMessageAndQuit(board, defeatMessage);
+    return;
+  }
+
+  int indexToUse = rand() % emptySpots->count;
+  int y = emptySpots->spots[indexToUse] / gridsize;
+  int x = emptySpots->spots[indexToUse] % gridsize;
+  if (board[y][x]) {
+    return;
+  }
+  board[y][x] = getCellByIndex(1);
+  free(emptySpots);
+}
+
+
+
 void init_color_pairs() {
   start_color();
   init_pair(6, COLOR_WHITE, COLOR_MAGENTA);
@@ -126,7 +174,6 @@ void drawSquareAtPos(int x, int y, Cell* cell) {
     }    
   }
   attroff(COLOR_PAIR(color));
-  mvprintw(gridsize*SQUARE_CHAR_HEIGHT + 2, 5, "Use wasd to move");
 }
 
 
@@ -139,6 +186,7 @@ void updateScreen(Cell*** board) {
       drawSquareAtPos(y,x, board[x][y]);
     }
   }
+  mvprintw(gridsize*SQUARE_CHAR_HEIGHT + 2, 5, "Use wasd to move");
 }
 
 void merge(int x1, int y1, int x2, int y2, Cell*** board) {
@@ -250,93 +298,65 @@ bool moveCellUp(int x, int y, Cell*** board) {
   return FALSE;
 }
 
-void moveBoardRight(Cell*** board) {
-  for (int i=0; i < gridsize; i++) {
-    for (int y=0; y< gridsize; y++) {
-      for (int x = gridsize-1; x>= 0;x--) {
-        if (!board[y][x]) {
-          continue;
-        }
-        moveCellRight(x,y,board);
-      }
-    }
-  }
-
-}
-
-void moveBoardLeft(Cell*** board) {
+void moveBoard(Cell*** board, enum Direction dir) {
   for (int i=0; i < gridsize; i++) {
     for (int y=0; y< gridsize; y++) {
       for (int x = 0; x<gridsize;x++) {
         if (!board[y][x]) {
           continue;
         }
-        moveCellLeft(x,y,board);
-      }
-    }
-  }
-
-}
-
-void moveBoardUp(Cell*** board) {
-  for (int i=0; i < gridsize; i++) {
-    for (int y=0; y< gridsize; y++) {
-      for (int x = 0; x<gridsize;x++) {
-        if (!board[y][x]) {
-          continue;
+        switch (dir) {
+          case UP: moveCellUp(x, y, board); break;
+          case DOWN: moveCellDown(x, y, board); break;
+          case LEFT: moveCellLeft(x, y, board); break;
+          case RIGHT: moveCellRight(x, y, board); break;
         }
-        moveCellUp(x,y,board);
       }
     }
   }
-
 }
 
-void moveBoardDown(Cell*** board) {
-  for (int i=0; i < gridsize; i++) {
-    for (int y=0; y< gridsize; y++) {
-      for (int x = 0; x<gridsize;x++) {
-        if (!board[y][x]) {
-          continue;
-        }
-        moveCellDown(x,y,board);
-      }
-    }
-  }
-
-}
-
-void victoryMessage(Cell *** board) {
+void displayMessageAndQuit(Cell*** board, char* message) {
   bool quit = FALSE;
   erase();
   updateScreen(board);
-  mvprintw(gridsize*SQUARE_CHAR_HEIGHT + 2, 5, "You won, use q to quit");
+  mvprintw(gridsize*SQUARE_CHAR_HEIGHT + 2, 5, message);
   refresh();
   int inputChar;
   while (!quit) {
     inputChar = getch();
     if (inputChar == 'q') {
-      return;
+      break;
     }
   }
+  endwin();
+  exit(0);
 }
 
 void gameLoop(Cell*** board) {
+  spawnCellInEmptySpot(board);
+  updateScreen(board);
+  refresh();
+
   int inputChar;
+  enum Direction direction;
   while (!win) {
     inputChar = getch();
+
     switch (inputChar) {
-      case 'w': moveBoardUp(board); break;
-      case 's': moveBoardDown(board); break;
-      case 'a': moveBoardLeft(board); break;
-      case 'd': moveBoardRight(board); break;
-      case 'q': win = true; break;
+      case 'w': direction = UP; break;
+      case 's': direction = DOWN; break;
+      case 'a': direction = LEFT; break;
+      case 'd': direction = RIGHT; break;
+      case 'q': return; break;
     }
+    moveBoard(board, direction);
+    spawnCellInEmptySpot(board);
     erase();
     updateScreen(board);
     refresh();
   }
-  victoryMessage(board);
+  displayMessageAndQuit(board, victoryMessage);
 }
 
 int main(int argc, char *argv[]) {
@@ -350,34 +370,8 @@ int main(int argc, char *argv[]) {
   noecho();
   init_color_pairs();
   getmaxyx(stdscr, heigth, width);
-  Cell* cellone = getCellByIndex(1);
-  Cell* cellone2 = getCellByIndex(2);
-  Cell* cellone3 = getCellByIndex(3);
-  Cell* cellone4 = getCellByIndex(4);
-  Cell* cellone5 = getCellByIndex(5);
-  Cell* cellone6 = getCellByIndex(6);
-  Cell* cellone7 = getCellByIndex(7);
-  Cell* cellone8 = getCellByIndex(8);
-  Cell* cellone9 = getCellByIndex(9);
-  Cell* celltentwo = getCellByIndex(10);
-  Cell* cellten = getCellByIndex(10);
-  /*board[0][0] = cellone;
-  board[0][1] = cellone2;
-  board[0][2] = cellone3;
-  board[0][3] = cellone4;
-  board[1][0] = cellone5;
-  board[1][1] = cellone6;
-  board[1][2] = cellone7;
-  board[1][3] = cellone8;
-  board[2][0] = cellone9;
-  board[2][1] = celltentwo;
-	*/
-  board[2][0] = cellten;
-  board[2][1] = celltentwo;
-	//printw("Hello World !!! W: %d, H: %d", width, heigth);
-	refresh();
-  updateScreen(board);
-  refresh();
+
+
   gameLoop(board);
 
 
