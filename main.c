@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ncurses.h>
+#include <stdbool.h>
 
 
 #define GRID 4
@@ -15,6 +16,7 @@ typedef struct {
 
 
 int gridsize = GRID;
+bool win = false;
 
 Cell* getCellByIndex(int index) {
   if (index < 1 || index > 11) {
@@ -67,6 +69,7 @@ Cell* getCellByIndex(int index) {
     case 11:
       pcell->number = "2048";
       pcell->numberCharLen = 4;
+      win = TRUE;
       break;
   }
   return pcell;
@@ -74,19 +77,19 @@ Cell* getCellByIndex(int index) {
 
 void init_color_pairs() {
   start_color();
+  init_pair(0, COLOR_WHITE, COLOR_MAGENTA);
   init_pair(1, COLOR_WHITE, COLOR_RED);
   init_pair(2, COLOR_BLACK, COLOR_GREEN);
   init_pair(3, COLOR_WHITE, COLOR_BLUE);
-  init_pair(4, COLOR_WHITE, COLOR_BLACK);
+  init_pair(4, COLOR_BLACK, COLOR_WHITE);
   init_pair(5, COLOR_WHITE, COLOR_YELLOW);
-  init_pair(0, COLOR_WHITE, COLOR_RED);
 }
 
 // Valid method to draw squares
 void drawSquareAtPos(int x, int y, Cell* cell) {
  // printf("%d %s %d", cell.index, cell.number, cell.numberCharLen);
   int padding = 1;
-  attron(COLOR_PAIR((x+y)%6));
+  attron(COLOR_PAIR(cell->index%6));
   int startY = y*SQUARE_CHAR_HEIGHT;
   int startX = x*SQUARE_CHAR_WIDTH;
   for (int i = 0; i < SQUARE_CHAR_HEIGHT; i++) {
@@ -114,7 +117,7 @@ void drawSquareAtPos(int x, int y, Cell* cell) {
       }
     }    
   }
-  attroff(COLOR_PAIR((x+y)%6));
+  attroff(COLOR_PAIR(cell->index%6));
 }
 
 
@@ -145,95 +148,173 @@ void merge(int x1, int y1, int x2, int y2, Cell*** board) {
   }
 }
 
-void moveCellLeft(int x, int y, Cell*** board) {
+// TODO: Change all moveCellDirection to return void
+bool moveCellLeft(int x, int y, Cell*** board) {
   if (!board[y][x]) {
-    return;
+    return FALSE;
   }
   if (x-1 < 0) {
-    return;
+    return FALSE;
   }
   if (x-1 >= 0 && board[y][x-1] && board[y][x-1]->index == board[y][x]->index) {
     merge(x-1, y, x, y, board);
-    return;
+    return TRUE;
   }
 
   if (x-1 >= 0 && !board[y][x-1]) {
     Cell* cell = board[y][x];
     board[y][x] = NULL;
     board[y][x-1] = cell;
-    return;
+    return TRUE;
   }
+
+  return FALSE;
 }
 
-void moveCellDown(int x, int y, Cell*** board) {
+bool moveCellDown(int x, int y, Cell*** board) {
   if (!board[y][x]) {
-    return;
+    return FALSE;
   }
 
   if (y+1 >= gridsize) {
-    return;
+    return FALSE;
   }
   if (y+1 < gridsize && board[y+1][x] && board[y+1][x]->index == board[y][x]->index) {
     merge(x, y+1, x, y, board);
-    return;
+    return TRUE;
   }
   if (y+1 < gridsize && !board[y+1][x]) {
     Cell* cell = board[y][x];
     board[y][x] = NULL;
     board[y+1][x] = cell;
+    return TRUE;
   }
+
+  return FALSE;
 }
 
-void moveCellRight(int x, int y, Cell*** board) {
+bool moveCellRight(int x, int y, Cell*** board) {
   if (!board[y][x]) {
-    return;
+    return FALSE;
   }
 
   if (x+1 >= gridsize) {
-    return;
-  }
-  if (x+1 < gridsize && board[y][x+1] && board[y][x+1]->index == board[y][x]->index) {
-    merge(x+1, y, x, y, board);
-    return;
+    return FALSE;
   }
 
-  if (x+1 < gridsize) {
+  if (x+1 < gridsize && board[y][x+1] && board[y][x+1]->index == board[y][x]->index) {
+    merge(x+1, y, x, y, board);
+    return TRUE;
+  }
+
+  if (x+1 < gridsize && !board[y][x+1]) {
     Cell* cell = board[y][x];
     board[y][x] = NULL;
     board[y][x+1] = cell;
+    return TRUE;
   }
+
+  return FALSE;
 }
 
-void moveCellUp(int x, int y, Cell*** board) {
+bool moveCellUp(int x, int y, Cell*** board) {
   if (!board[y][x]) {
-    return;
+    return FALSE;
   }
 
   if (y-1 < 0) {
-    return;
+    return FALSE;
   }
 
   if (y-1 >= 0 && board[y-1][x] && board[y-1][x]->index == board[y][x]->index) {
     merge(x, y-1, x, y, board);
-    return;
+    return TRUE;
   }
 
-  if (y-1 >= 0) {
-    Cell* cell = board[y-1][x];
+  if (y-1 >= 0 && !board[y-1][x]) {
+    Cell* cell = board[y][x];
     board[y][x] = NULL;
     board[y-1][x] = cell;
+    return TRUE;
   }
+
+  return FALSE;
 }
 
 void moveBoardRight(Cell*** board) {
-  for (int y=0; y< gridsize; y++) {
-    for (int x = gridsize-1; x>= 0;x--) {
-      if (!board[y][x]) {
-        continue;
+  for (int i=0; i < gridsize; i++) {
+    for (int y=0; y< gridsize; y++) {
+      for (int x = gridsize-1; x>= 0;x--) {
+        if (!board[y][x]) {
+          continue;
+        }
+        moveCellRight(x,y,board);
       }
-      moveCellRight(x,y,board);
     }
   }
+
+}
+
+void moveBoardLeft(Cell*** board) {
+  for (int i=0; i < gridsize; i++) {
+    for (int y=0; y< gridsize; y++) {
+      for (int x = 0; x<gridsize;x++) {
+        if (!board[y][x]) {
+          continue;
+        }
+        moveCellLeft(x,y,board);
+      }
+    }
+  }
+
+}
+
+void moveBoardUp(Cell*** board) {
+  for (int i=0; i < gridsize; i++) {
+    for (int y=0; y< gridsize; y++) {
+      for (int x = 0; x<gridsize;x++) {
+        if (!board[y][x]) {
+          continue;
+        }
+        moveCellUp(x,y,board);
+      }
+    }
+  }
+
+}
+
+void moveBoardDown(Cell*** board) {
+  for (int i=0; i < gridsize; i++) {
+    for (int y=0; y< gridsize; y++) {
+      for (int x = 0; x<gridsize;x++) {
+        if (!board[y][x]) {
+          continue;
+        }
+        moveCellDown(x,y,board);
+      }
+    }
+  }
+
+}
+
+
+void gameLoop(Cell*** board) {
+  int inputChar;
+  while (!win) {
+    inputChar = getch();
+    switch (inputChar) {
+      case 'w': moveBoardUp(board); printf("w\n"); break;
+      case 's': moveBoardDown(board); break;
+      case 'a': moveBoardLeft(board); break;
+      case 'd': moveBoardRight(board); break;
+      case 'q': win = true; break;
+    }
+    erase();
+    updateScreen(board);
+    refresh();
+  }
+  getch();
+  //TODO: Victory message
 }
 
 int main(int argc, char *argv[]) {
@@ -251,27 +332,15 @@ int main(int argc, char *argv[]) {
   Cell* cellonet = getCellByIndex(3);
   Cell* celltwo = getCellByIndex(4);
   Cell* cellthree = getCellByIndex(6);
-  board[0][0] = cellone;
-  board[0][3] = cellthree;
-  board[1][0] = celloned;
-  board[2][0] = cellthree;
-  board[0][1] = celloned;
-  board[0][2] = cellonet;
-  board[1][1] = celloned;
+  Cell* cellten = getCellByIndex(10);
+  Cell* celltentwo = getCellByIndex(10);
+  board[0][0] = cellten;
+  board[0][1] = celltentwo;
 	//printw("Hello World !!! W: %d, H: %d", width, heigth);
 	refresh();
   updateScreen(board);
   refresh();
-	getch();
-  erase();
-  refresh();
-  //moveCellRight(0,1,board);
-  moveBoardRight(board);
-  updateScreen(board);
-  refresh();
-  getch();
-  refresh();
-  getch();
+  gameLoop(board);
 
 
   for (int i=0; i< gridsize; i++) {
