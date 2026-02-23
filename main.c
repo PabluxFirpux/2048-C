@@ -8,6 +8,10 @@
 #define SQUARE_CHAR_HEIGHT 3
 #define SQUARE_CHAR_WIDTH 6
 
+enum Direction {
+  UP, DOWN, LEFT, RIGHT
+};
+
 typedef struct {
   int index;
   char* number;
@@ -77,7 +81,7 @@ Cell* getCellByIndex(int index) {
 
 void init_color_pairs() {
   start_color();
-  init_pair(0, COLOR_WHITE, COLOR_MAGENTA);
+  init_pair(6, COLOR_WHITE, COLOR_MAGENTA);
   init_pair(1, COLOR_WHITE, COLOR_RED);
   init_pair(2, COLOR_BLACK, COLOR_GREEN);
   init_pair(3, COLOR_WHITE, COLOR_BLUE);
@@ -89,7 +93,11 @@ void init_color_pairs() {
 void drawSquareAtPos(int x, int y, Cell* cell) {
  // printf("%d %s %d", cell.index, cell.number, cell.numberCharLen);
   int padding = 1;
-  attron(COLOR_PAIR(cell->index%6));
+  int color = cell->index%7;
+  if (color == 0) {
+    color += 2;
+  }
+  attron(COLOR_PAIR(color));
   int startY = y*SQUARE_CHAR_HEIGHT;
   int startX = x*SQUARE_CHAR_WIDTH;
   for (int i = 0; i < SQUARE_CHAR_HEIGHT; i++) {
@@ -117,7 +125,8 @@ void drawSquareAtPos(int x, int y, Cell* cell) {
       }
     }    
   }
-  attroff(COLOR_PAIR(cell->index%6));
+  attroff(COLOR_PAIR(color));
+  mvprintw(gridsize*SQUARE_CHAR_HEIGHT + 2, 5, "Use wasd to move");
 }
 
 
@@ -140,10 +149,10 @@ void merge(int x1, int y1, int x2, int y2, Cell*** board) {
   if (board[y1][x1]->index == board[y2][x2]->index) {
     Cell* second = board[y2][x2];
     board[y2][x2] = NULL;
-    //free(second);
+    free(second);
     Cell* first = board[y1][x1];
     board[y1][x1] = getCellByIndex((first->index)+1);
-    //free(first);
+    free(first);
     return;
   }
 }
@@ -297,13 +306,27 @@ void moveBoardDown(Cell*** board) {
 
 }
 
+void victoryMessage(Cell *** board) {
+  bool quit = FALSE;
+  erase();
+  updateScreen(board);
+  mvprintw(gridsize*SQUARE_CHAR_HEIGHT + 2, 5, "You won, use q to quit");
+  refresh();
+  int inputChar;
+  while (!quit) {
+    inputChar = getch();
+    if (inputChar == 'q') {
+      return;
+    }
+  }
+}
 
 void gameLoop(Cell*** board) {
   int inputChar;
   while (!win) {
     inputChar = getch();
     switch (inputChar) {
-      case 'w': moveBoardUp(board); printf("w\n"); break;
+      case 'w': moveBoardUp(board); break;
       case 's': moveBoardDown(board); break;
       case 'a': moveBoardLeft(board); break;
       case 'd': moveBoardRight(board); break;
@@ -313,8 +336,7 @@ void gameLoop(Cell*** board) {
     updateScreen(board);
     refresh();
   }
-  getch();
-  //TODO: Victory message
+  victoryMessage(board);
 }
 
 int main(int argc, char *argv[]) {
@@ -325,17 +347,33 @@ int main(int argc, char *argv[]) {
   size_t width, heigth;
 
   initscr();
+  noecho();
   init_color_pairs();
   getmaxyx(stdscr, heigth, width);
   Cell* cellone = getCellByIndex(1);
-  Cell* celloned = getCellByIndex(2);
-  Cell* cellonet = getCellByIndex(3);
-  Cell* celltwo = getCellByIndex(4);
-  Cell* cellthree = getCellByIndex(6);
-  Cell* cellten = getCellByIndex(10);
+  Cell* cellone2 = getCellByIndex(2);
+  Cell* cellone3 = getCellByIndex(3);
+  Cell* cellone4 = getCellByIndex(4);
+  Cell* cellone5 = getCellByIndex(5);
+  Cell* cellone6 = getCellByIndex(6);
+  Cell* cellone7 = getCellByIndex(7);
+  Cell* cellone8 = getCellByIndex(8);
+  Cell* cellone9 = getCellByIndex(9);
   Cell* celltentwo = getCellByIndex(10);
-  board[0][0] = cellten;
-  board[0][1] = celltentwo;
+  Cell* cellten = getCellByIndex(10);
+  /*board[0][0] = cellone;
+  board[0][1] = cellone2;
+  board[0][2] = cellone3;
+  board[0][3] = cellone4;
+  board[1][0] = cellone5;
+  board[1][1] = cellone6;
+  board[1][2] = cellone7;
+  board[1][3] = cellone8;
+  board[2][0] = cellone9;
+  board[2][1] = celltentwo;
+	*/
+  board[2][0] = cellten;
+  board[2][1] = celltentwo;
 	//printw("Hello World !!! W: %d, H: %d", width, heigth);
 	refresh();
   updateScreen(board);
